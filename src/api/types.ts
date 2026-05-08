@@ -87,6 +87,9 @@ export interface AffiliateProfile {
     total_commission_earned: string;
     total_paid_out: string;
     pending_commission: string;
+    total_commission_earned_ngn: string;
+    total_paid_out_ngn: string;
+    pending_commission_ngn: string;
     status: "active" | "suspended" | "pending";
     created_at: string;
     updated_at: string;
@@ -116,6 +119,7 @@ export interface CommissionRecord {
     amount: string;
     rate: number;
     status: "pending" | "approved" | "paid" | "cancelled";
+    currency: string;
     customer_email?: string;
     reference_type: string;
     reference_id: number;
@@ -127,6 +131,7 @@ export interface PayoutRecord {
     id: number;
     affiliate_id: number;
     amount: string;
+    currency: string;
     payment_method: string;
     payment_details: string;
     status: "pending" | "processing" | "completed" | "failed";
@@ -142,6 +147,9 @@ export interface AffiliateStats {
     total_commission: string;
     pending_commission: string;
     paid_commission: string;
+    total_commission_ngn: string;
+    pending_commission_ngn: string;
+    paid_commission_ngn: string;
     active_links: number;
     top_campaigns: Array<{
         campaign: string;

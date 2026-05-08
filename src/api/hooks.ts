@@ -65,7 +65,7 @@ export function useCreditPlans() {
         queryKey: affiliateKeys.creditPlans(),
         queryFn: async () => {
             const res = await api.get<SuccessResponse<CreditPlan[]>>("/user-credit-plans");
-            return res.data.data.filter((plan) => !plan.isCompanyPlan && !plan.isFamilyPlan);
+            return res.data.data;
         },
         staleTime: 10 * 60 * 1000,
     });
@@ -98,7 +98,7 @@ export function usePayouts() {
 export function useRequestPayout() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (data: { amount: number; payment_method: string; payment_details: string }) => {
+        mutationFn: async (data: { amount: number; currency: string; payment_method: string; payment_details: string }) => {
             const res = await api.post<SuccessResponse<PayoutRecord>>("/affiliate/payouts", data);
             return res.data.data;
         },
@@ -116,6 +116,32 @@ export function useAffiliateStats() {
         queryKey: affiliateKeys.stats(),
         queryFn: async () => {
             const res = await api.get<SuccessResponse<AffiliateStats>>("/affiliate/stats");
+            return res.data.data;
+        },
+    });
+}
+
+// ─── Banks ───────────────────────────────────────────────────
+
+export function useBanks(country: string = "NG") {
+    return useQuery({
+        queryKey: ["banks", country],
+        queryFn: async () => {
+            // Remove /v1 prefix since axios baseURL already includes /api/v1
+            const res = await api.get<SuccessResponse<Array<{ id: number; code: string; name: string }>>>(`/public/affiliate/banks/${country}`);
+            return res.data.data;
+        },
+        staleTime: 60 * 60 * 1000,
+    });
+}
+
+export function useValidateBankAccount() {
+    return useMutation({
+        mutationFn: async (data: { accountNumber: string; bankCode: string }) => {
+            const res = await api.post<SuccessResponse<{ accountName: string; accountNumber: string }>>(
+                "/public/affiliate/banks/validate",
+                data
+            );
             return res.data.data;
         },
     });

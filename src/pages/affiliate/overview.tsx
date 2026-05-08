@@ -90,13 +90,35 @@ const Overview = () => {
                             accent
                         />
                         <StatCard
-                            label="Commission earned"
+                            label="Commission (USD)"
                             value={`$${parseFloat(stats?.total_commission ?? "0").toLocaleString()}`}
                             icon={<LucideCoins className="w-4 h-4" />}
                         />
                         <StatCard
-                            label="Pending payout"
+                            label="Commission (NGN)"
+                            value={`\u20a6${parseFloat(stats?.total_commission_ngn ?? "0").toLocaleString()}`}
+                            icon={<LucideCoins className="w-4 h-4" />}
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <StatCard
+                            label="Pending (USD)"
                             value={`$${parseFloat(stats?.pending_commission ?? "0").toLocaleString()}`}
+                            icon={<LucideWallet className="w-4 h-4" />}
+                        />
+                        <StatCard
+                            label="Pending (NGN)"
+                            value={`\u20a6${parseFloat(stats?.pending_commission_ngn ?? "0").toLocaleString()}`}
+                            icon={<LucideWallet className="w-4 h-4" />}
+                        />
+                        <StatCard
+                            label="Paid out (USD)"
+                            value={`$${parseFloat(stats?.paid_commission ?? "0").toLocaleString()}`}
+                            icon={<LucideWallet className="w-4 h-4" />}
+                        />
+                        <StatCard
+                            label="Paid out (NGN)"
+                            value={`\u20a6${parseFloat(stats?.paid_commission_ngn ?? "0").toLocaleString()}`}
                             icon={<LucideWallet className="w-4 h-4" />}
                         />
                     </div>

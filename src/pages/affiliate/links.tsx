@@ -67,7 +67,11 @@ const Links = () => {
         const selectedPlan = (creditPlans ?? []).find((plan) => String(plan.id) === creditPlanId);
         const resolvedDestinationUrl = (() => {
             if (redirectTarget === "home") return `${normalizedClientBaseUrl}/`;
-            if (redirectTarget === "pricing") return `${normalizedClientBaseUrl}/pricing`;
+            if (redirectTarget === "pricing") {
+                return selectedPlan ?
+                    `${normalizedClientBaseUrl}/pricing?plan=${encodeURIComponent(selectedPlan.code)}`
+                    : `${normalizedClientBaseUrl}/pricing`;
+            }
             if (redirectTarget === "custom") return destinationUrl.trim();
             return buildPlanDestination(selectedPlan, normalizedClientBaseUrl);
         })();

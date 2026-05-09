@@ -5,6 +5,7 @@ import { cn } from "../../lib/utils";
 import { AFFILIATE_GLASS_SURFACE } from "../../lib/chrome";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { useAffiliateProfile } from "../../api/hooks";
 
 const resources = [
     {
@@ -41,15 +42,17 @@ const resources = [
 
 const Resources = () => {
     const [copiedCode, setCopiedCode] = useState(false);
+    const { data: profile, isLoading: profileLoading } = useAffiliateProfile();
 
-    const referralCode = "YOUR_CODE";
-    const baseUrl = import.meta.env.VITE_API_BASE_URL
-        ? `${import.meta.env.VITE_API_BASE_URL.replace("/api/v1", "")}/ref`
-        : "https://tmag.com/ref";
-
-    const fullUrl = `${baseUrl}/${referralCode}`;
+    const referralCode = profile?.referral_code ?? "";
+    const clientBaseUrl = import.meta.env.VITE_CLIENT_BASE_URL || "http://localhost:3000";
+    const fullUrl = referralCode ? `${clientBaseUrl.replace(/\/$/, "")}/ref/${referralCode}` : "";
 
     const handleCopy = () => {
+        if (!fullUrl) {
+            toast.error("Referral code is still loading.");
+            return;
+        }
         navigator.clipboard.writeText(fullUrl).then(() => {
             setCopiedCode(true);
             toast.success("Link copied!");
@@ -104,11 +107,12 @@ const Resources = () => {
                 </p>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <code className="flex-1 px-4 py-3 rounded-xl bg-button-secondary text-sm text-heading font-mono break-all">
-                        {fullUrl}
+                        {profileLoading ? "Loading your referral link…" : fullUrl || "Referral link unavailable"}
                     </code>
                     <Button
                         size="sm"
                         onClick={handleCopy}
+                        disabled={!fullUrl}
                         className="flex-shrink-0 w-full sm:w-auto"
                     >
                         {copiedCode ? (

@@ -16,6 +16,17 @@ import {
     LucideX,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import type { CreditPlan } from "../../api/types";
+
+type RedirectTarget = "plan" | "pricing" | "home" | "custom";
+
+const buildPlanDestination = (plan: CreditPlan | undefined, clientBaseUrl: string): string => {
+    const base = clientBaseUrl.replace(/\/$/, "");
+    if (!plan) return `${base}/pricing`;
+    if (plan.isCompanyPlan) return `${base}/company-onboarding?plan=${encodeURIComponent(plan.code)}`;
+    if (plan.isFamilyPlan) return `${base}/family-checkout?plan=FAMILY_${plan.id}`;
+    return `${base}/pricing?plan=${encodeURIComponent(plan.code)}`;
+};
 
 const Links = () => {
     const { data: links, isLoading } = useReferralLinks();
@@ -25,12 +36,14 @@ const Links = () => {
     const [showForm, setShowForm] = useState(false);
     const [campaign, setCampaign] = useState("");
     const [destinationUrl, setDestinationUrl] = useState("");
+    const [redirectTarget, setRedirectTarget] = useState<RedirectTarget>("plan");
     const [creditPlanId, setCreditPlanId] = useState("");
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
 
     const clientBaseUrl = import.meta.env.VITE_CLIENT_BASE_URL || "http://localhost:3000";
-    const baseUrl = `${clientBaseUrl.replace(/\/$/, "")}/ref`;
+    const normalizedClientBaseUrl = clientBaseUrl.replace(/\/$/, "");
+    const baseUrl = `${normalizedClientBaseUrl}/ref`;
 
     const filtered = links?.filter((link) =>
         link.campaign.toLowerCase().includes(search.toLowerCase())
@@ -38,19 +51,37 @@ const Links = () => {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!campaign || (!destinationUrl && !creditPlanId)) {
-            toast.error("Add a campaign and choose a credit plan or destination URL.");
+        if (!campaign.trim()) {
+            toast.error("Add a campaign name.");
             return;
         }
+        if (redirectTarget === "plan" && !creditPlanId) {
+            toast.error("Choose a credit plan or switch the destination to home/pricing.");
+            return;
+        }
+        if (redirectTarget === "custom" && !destinationUrl.trim()) {
+            toast.error("Add a custom destination URL.");
+            return;
+        }
+
+        const selectedPlan = (creditPlans ?? []).find((plan) => String(plan.id) === creditPlanId);
+        const resolvedDestinationUrl = (() => {
+            if (redirectTarget === "home") return `${normalizedClientBaseUrl}/`;
+            if (redirectTarget === "pricing") return `${normalizedClientBaseUrl}/pricing`;
+            if (redirectTarget === "custom") return destinationUrl.trim();
+            return buildPlanDestination(selectedPlan, normalizedClientBaseUrl);
+        })();
+
         try {
             await createLink.mutateAsync({
-                campaign,
-                destination_url: destinationUrl || undefined,
+                campaign: campaign.trim(),
+                destination_url: resolvedDestinationUrl,
                 credit_plan_id: creditPlanId ? Number(creditPlanId) : undefined,
             });
             toast.success("Referral link created!");
             setCampaign("");
             setDestinationUrl("");
+            setRedirectTarget("plan");
             setCreditPlanId("");
             setShowForm(false);
         } catch {
@@ -85,6 +116,7 @@ const Links = () => {
                                 setShowForm(false);
                                 setCampaign("");
                                 setDestinationUrl("");
+                                setRedirectTarget("plan");
                                 setCreditPlanId("");
                             }}
                             className="p-1 hover:bg-button-secondary rounded-lg transition-colors"
@@ -92,7 +124,7 @@ const Links = () => {
                             <LucideX className="w-5 h-5 text-muted" />
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
                                 Campaign name
@@ -123,15 +155,32 @@ const Links = () => {
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                                Destination URL
+                                Send visitors to
                             </label>
-                            <input
-                                value={destinationUrl}
-                                onChange={(e) => setDestinationUrl(e.target.value)}
-                                placeholder="Auto-filled by plan if blank"
-                                className="w-full px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
-                            />
+                            <select
+                                value={redirectTarget}
+                                onChange={(e) => setRedirectTarget(e.target.value as RedirectTarget)}
+                                className="w-full px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                            >
+                                <option value="plan">Selected plan checkout</option>
+                                <option value="pricing">Pricing page</option>
+                                <option value="home">Home page</option>
+                                <option value="custom">Custom URL</option>
+                            </select>
                         </div>
+                        {redirectTarget === "custom" && (
+                            <div>
+                                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                                    Destination URL
+                                </label>
+                                <input
+                                    value={destinationUrl}
+                                    onChange={(e) => setDestinationUrl(e.target.value)}
+                                    placeholder="https://example.com/page"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                                />
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-3 pt-2 border-t border-border-light/30">
                         <Button type="submit" loading={createLink.isPending} size="sm">
@@ -146,6 +195,7 @@ const Links = () => {
                                 setShowForm(false);
                                 setCampaign("");
                                 setDestinationUrl("");
+                                setRedirectTarget("plan");
                                 setCreditPlanId("");
                             }}
                         >

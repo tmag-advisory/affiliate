@@ -2,8 +2,8 @@ import { useCommissions } from "../../api/hooks";
 import AffiliateHeader from "../../components/affiliate/AffiliateHeader";
 import { cn } from "../../lib/utils";
 import { AFFILIATE_GLASS_SURFACE } from "../../lib/chrome";
-import { LucideCoins, LucideLoader2 } from "lucide-react";
-import { useState } from "react";
+import { LucideCoins, LucideLoader2, LucideCalendar } from "lucide-react";
+import { useMemo, useState } from "react";
 
 const statusColors: Record<string, string> = {
     pending: "text-warning bg-warning-light",
@@ -14,8 +14,37 @@ const statusColors: Record<string, string> = {
 
 const statusOptions = ["all", "pending", "approved", "paid", "cancelled"];
 
+function formatCurrency(amount: number, currency: string): string {
+    const symbol = currency === "NGN" ? "₦" : "$";
+    return `${symbol}${amount.toFixed(2)}`;
+}
+
+type Period = "all" | "7d" | "30d" | "90d" | "1y";
+
+const PERIOD_LABELS: Record<Period, string> = {
+    all: "All time",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "90d": "Last 90 days",
+    "1y": "Last year",
+};
+
+function getPeriodDates(period: Period): { startDate?: string; endDate?: string } {
+    if (period === "all") return {};
+    const now = new Date();
+    const start = new Date(now);
+    const days = period === "7d" ? 7 : period === "30d" ? 30 : period === "90d" ? 90 : 365;
+    start.setDate(start.getDate() - days);
+    return {
+        startDate: start.toISOString().split("T")[0],
+        endDate: now.toISOString().split("T")[0],
+    };
+}
+
 const Commissions = () => {
-    const { data: commissions, isLoading } = useCommissions();
+    const [period, setPeriod] = useState<Period>("all");
+    const periodDates = useMemo(() => getPeriodDates(period), [period]);
+    const { data: commissions, isLoading } = useCommissions(periodDates.startDate, periodDates.endDate);
     const [filter, setFilter] = useState("all");
 
     const filtered =
@@ -25,44 +54,64 @@ const Commissions = () => {
     const totals = commissions?.reduce(
         (acc, c) => {
             const amount = parseFloat(c.amount);
-            if (c.status === "paid") acc.paid += amount;
-            if (c.status === "pending") acc.pending += amount;
-            if (c.status === "approved") acc.approved += amount;
+            const curr = c.currency ?? "USD";
+            acc[curr] = acc[curr] ?? { paid: 0, pending: 0, approved: 0 };
+            if (c.status === "paid") acc[curr].paid += amount;
+            if (c.status === "pending") acc[curr].pending += amount;
+            if (c.status === "approved") acc[curr].approved += amount;
             return acc;
         },
-        { paid: 0, pending: 0, approved: 0 },
+        {} as Record<string, { paid: number; pending: number; approved: number }>,
     );
 
     return (
         <div>
             <AffiliateHeader title="Commissions" />
 
+            {/* Period selector */}
+            <div className={cn(AFFILIATE_GLASS_SURFACE, "flex items-center gap-1 p-1 mb-6 w-fit")}>
+                <LucideCalendar className="w-4 h-4 text-muted ml-2 mr-1" />
+                {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+                    <button
+                        key={p}
+                        onClick={() => setPeriod(p)}
+                        className={cn(
+                            "px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
+                            period === p
+                                ? "bg-dark text-white shadow-sm"
+                                : "text-muted hover:text-heading hover:bg-background-secondary",
+                        )}
+                    >
+                        {PERIOD_LABELS[p]}
+                    </button>
+                ))}
+            </div>
+
             {/* Summary cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <div className={cn(AFFILIATE_GLASS_SURFACE, "p-5")}>
-                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
-                        Paid
-                    </p>
-                    <p className="text-2xl font-serif text-success">
-                        ${totals?.paid.toFixed(2) ?? "0.00"}
-                    </p>
-                </div>
-                <div className={cn(AFFILIATE_GLASS_SURFACE, "p-5")}>
-                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
-                        Approved
-                    </p>
-                    <p className="text-2xl font-serif text-accent">
-                        ${totals?.approved.toFixed(2) ?? "0.00"}
-                    </p>
-                </div>
-                <div className={cn(AFFILIATE_GLASS_SURFACE, "p-5")}>
-                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
-                        Pending
-                    </p>
-                    <p className="text-2xl font-serif text-warning">
-                        ${totals?.pending.toFixed(2) ?? "0.00"}
-                    </p>
-                </div>
+                {[
+                    { label: "Paid", key: "paid" as const, color: "text-success" },
+                    { label: "Approved", key: "approved" as const, color: "text-accent" },
+                    { label: "Pending", key: "pending" as const, color: "text-warning" },
+                ].map(({ label, key, color }) => {
+                    const byCurrency = Object.entries(totals ?? {})
+                        .filter(([, v]) => v[key] > 0)
+                        .map(([curr, v]) => ({ currency: curr, amount: v[key] }));
+                    return (
+                        <div key={label} className={cn(AFFILIATE_GLASS_SURFACE, "p-5")}>
+                            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
+                                {label}
+                            </p>
+                            {byCurrency.length > 0 ?
+                                byCurrency.map(({ currency, amount }) => (
+                                    <p key={currency} className={`text-2xl font-serif ${color}`}>
+                                        {formatCurrency(amount, currency)}
+                                    </p>
+                                ))
+                            :   <p className={`text-2xl font-serif ${color}`}>$0.00</p>}
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Filter tabs */}
@@ -126,9 +175,9 @@ const Commissions = () => {
                                                 {c.campaign}
                                             </td>
                                             <td className="px-6 py-4 text-heading font-semibold">
-                                                $
-                                                {parseFloat(c.amount).toFixed(
-                                                    2,
+                                                {formatCurrency(
+                                                    parseFloat(c.amount),
+                                                    c.currency,
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-muted hidden sm:table-cell">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePayouts, useRequestPayout, useAffiliateProfile, useBanks, useValidateBankAccount } from "../../api/hooks";
 import AffiliateHeader from "../../components/affiliate/AffiliateHeader";
 import Button from "../../components/ui/Button";
@@ -10,6 +10,7 @@ import {
     LucideBanknote,
     LucideX,
     LucideCheck,
+    LucideAlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -45,7 +46,9 @@ const BalanceRow = ({
             </span>
             <p className="text-2xl font-serif text-heading">
                 {CURRENCY_SYMBOL[currency]}
-                {balance.toFixed(2)}
+                {Number(balance.toFixed(2)).toLocaleString("us-US", {
+                    minimumFractionDigits: 2,
+                })}
             </p>
         </div>
         <Button
@@ -74,13 +77,17 @@ const Payouts = () => {
     const [accountName, setAccountName] = useState("");
     const [paymentDetails, setPaymentDetails] = useState("");
 
+    const MIN_PAYOUT_USD = 200;
+    const MIN_PAYOUT_NGN = 200000;
+    const minPayout = currency === "NGN" ? MIN_PAYOUT_NGN : MIN_PAYOUT_USD;
+
     const balanceUsd = parseFloat(profile?.pending_commission ?? "0");
     const balanceNgn = parseFloat(profile?.pending_commission_ngn ?? "0");
     const activeBalance = currency === "NGN" ? balanceNgn : balanceUsd;
     const currencySymbol = CURRENCY_SYMBOL[currency];
 
     // For NGN, show Nigerian banks from Flutterwave
-    const { data: banks } = useBanks(currency === "NGN" ? "NG" : "");
+    const { data: banks } = useBanks(currency === "NGN" ? "NG" : "", currency === "NGN");
     const validateAccount = useValidateBankAccount();
 
     // Reset amount when currency changes to avoid stale values
@@ -92,40 +99,39 @@ const Payouts = () => {
         setPaymentDetails("");
         setPaymentMethod("bank_transfer");
         setCurrency(next);
+        setShowForm(true);
     };
 
-    // Auto-validate account when bank and account number are set
-    useEffect(() => {
-        if (
-            selectedBank &&
-            accountNumber.length >= 10 &&
-            paymentMethod === "bank_transfer" &&
-            currency === "NGN"
-        ) {
-            validateAccount.mutate(
-                { accountNumber, bankCode: selectedBank },
-                {
-                    onSuccess: (data) => {
-                        if (data?.accountName) {
-                            setAccountName(data.accountName);
-                            setPaymentDetails(
-                                `${data.accountName} | ${accountNumber} | ${selectedBank}`,
-                            );
-                        }
-                    },
-                    onError: () => setAccountName(""),
+    const handleValidateAccount = () => {
+        if (!selectedBank || accountNumber.length < 10) return;
+        validateAccount.mutate(
+            { accountNumber, bankCode: selectedBank },
+            {
+                onSuccess: (data) => {
+                    if (data?.accountName) {
+                        setAccountName(data.accountName);
+                        setPaymentDetails(
+                            `${data.accountName} | ${accountNumber} | ${selectedBank}`,
+                        );
+                    }
                 },
-            );
-        } else {
-            setAccountName("");
-        }
-    }, [selectedBank, accountNumber, paymentMethod, currency]);
+            },
+        );
+    };
+
+
 
     const handleRequest = async (e: React.FormEvent) => {
         e.preventDefault();
         const numAmount = parseFloat(amount);
         if (!numAmount || numAmount <= 0) {
             toast.error("Please enter a valid amount.");
+            return;
+        }
+        if (numAmount < minPayout) {
+            toast.error(
+                `Minimum payout is ${currencySymbol}${minPayout.toLocaleString()} for ${currency} payouts.`,
+            );
             return;
         }
         if (numAmount > activeBalance) {
@@ -135,8 +141,8 @@ const Payouts = () => {
             return;
         }
         if (paymentMethod === "bank_transfer") {
-            if (currency === "NGN" && (!selectedBank || !accountNumber)) {
-                toast.error("Please select a bank and enter your account number.");
+            if (currency === "NGN" && (!selectedBank || !accountNumber || !accountName.trim())) {
+                toast.error("Please select a bank, enter your account number, and provide the account name.");
                 return;
             }
             if (currency === "USD" && !paymentDetails.trim()) {
@@ -232,6 +238,19 @@ const Payouts = () => {
                         </span>
                     </div>
 
+                    {/* Minimum payout notice */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                        <LucideAlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                        <p className="text-xs text-amber-800">
+                            Minimum payout is <strong>{currencySymbol}{minPayout.toLocaleString()}</strong> for {currency} payouts.
+                            {activeBalance < minPayout && (
+                                <span className="block mt-1">
+                                    You need {currencySymbol}{(minPayout - activeBalance).toLocaleString()} more to reach the minimum.
+                                </span>
+                            )}
+                        </p>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Amount */}
                         <div>
@@ -240,12 +259,12 @@ const Payouts = () => {
                             </label>
                             <input
                                 type="number"
-                                step="0.01"
-                                min="1"
+                                step={currency === "NGN" ? "1" : "0.01"}
+                                min={minPayout}
                                 max={activeBalance}
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                placeholder="0.00"
+                                placeholder={minPayout.toLocaleString()}
                                 className="w-full px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
                             />
                         </div>
@@ -312,22 +331,32 @@ const Payouts = () => {
                                     <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
                                         Account number
                                     </label>
-                                    <input
-                                        value={accountNumber}
-                                        onChange={(e) =>
-                                            setAccountNumber(e.target.value)
-                                        }
-                                        placeholder="10-digit account number"
-                                        maxLength={10}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
-                                    />
-                                    <div className="mt-1.5 min-h-[18px]">
-                                        {validateAccount.isPending && (
-                                            <p className="text-xs text-muted flex items-center gap-1">
+                                    <div className="flex gap-2">
+                                        <input
+                                            value={accountNumber}
+                                            onChange={(e) => {
+                                                setAccountNumber(e.target.value);
+                                                setAccountName("");
+                                            }}
+                                            placeholder="10-digit account number"
+                                            maxLength={10}
+                                            className="flex-1 px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={handleValidateAccount}
+                                            disabled={!selectedBank || accountNumber.length < 10 || validateAccount.isPending}
+                                        >
+                                            {validateAccount.isPending ? (
                                                 <LucideLoader2 className="w-3 h-3 animate-spin" />
-                                                Validating account...
-                                            </p>
-                                        )}
+                                            ) : (
+                                                "Validate"
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <div className="mt-1.5 min-h-4.5">
                                         {accountName && (
                                             <p className="text-xs text-accent font-medium flex items-center gap-1">
                                                 <LucideCheck className="w-3 h-3" />
@@ -335,12 +364,29 @@ const Payouts = () => {
                                             </p>
                                         )}
                                         {validateAccount.isError && (
-                                            <p className="text-xs text-danger">
-                                                Could not verify account. Check
-                                                details.
+                                            <p className="text-xs text-danger flex items-center gap-1">
+                                                <LucideAlertCircle className="w-3 h-3" />
+                                                {(validateAccount.error as any)?.response?.data?.error || "Could not verify account."}
                                             </p>
                                         )}
                                     </div>
+                                </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                                        Account name
+                                    </label>
+                                    <input
+                                        value={accountName}
+                                        onChange={(e) => setAccountName(e.target.value)}
+                                        placeholder="Account holder name"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                                    />
+                                    <p className="text-xs text-muted mt-1">
+                                        {validateAccount.isSuccess
+                                            ? "Auto-filled from validation. You may edit if needed."
+                                            : "Enter the name on the bank account. Use Validate to auto-fill."}
+                                    </p>
                                 </div>
                             </>
                         )}

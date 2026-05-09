@@ -73,11 +73,14 @@ export function useCreditPlans() {
 
 // ─── Commissions ─────────────────────────────────────────────
 
-export function useCommissions() {
+export function useCommissions(startDate?: string, endDate?: string) {
     return useQuery({
-        queryKey: affiliateKeys.commissions(),
+        queryKey: [...affiliateKeys.commissions(), startDate, endDate],
         queryFn: async () => {
-            const res = await api.get<SuccessResponse<CommissionRecord[]>>("/affiliate/commissions");
+            const params: Record<string, string> = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+            const res = await api.get<SuccessResponse<CommissionRecord[]>>("/affiliate/commissions", { params });
             return res.data.data;
         },
     });
@@ -111,11 +114,14 @@ export function useRequestPayout() {
 
 // ─── Stats / Dashboard ───────────────────────────────────────
 
-export function useAffiliateStats() {
+export function useAffiliateStats(startDate?: string, endDate?: string) {
     return useQuery({
-        queryKey: affiliateKeys.stats(),
+        queryKey: [...affiliateKeys.stats(), startDate, endDate],
         queryFn: async () => {
-            const res = await api.get<SuccessResponse<AffiliateStats>>("/affiliate/stats");
+            const params: Record<string, string> = {};
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+            const res = await api.get<SuccessResponse<AffiliateStats>>("/affiliate/stats", { params });
             return res.data.data;
         },
     });
@@ -123,7 +129,7 @@ export function useAffiliateStats() {
 
 // ─── Banks ───────────────────────────────────────────────────
 
-export function useBanks(country: string = "NG") {
+export function useBanks(country: string = "NG", enabled: boolean = true) {
     return useQuery({
         queryKey: ["banks", country],
         queryFn: async () => {
@@ -132,6 +138,7 @@ export function useBanks(country: string = "NG") {
             return res.data.data;
         },
         staleTime: 60 * 60 * 1000,
+        enabled,
     });
 }
 

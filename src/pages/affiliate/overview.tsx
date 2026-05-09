@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useAffiliateProfile, useAffiliateStats } from "../../api/hooks";
 import AffiliateHeader from "../../components/affiliate/AffiliateHeader";
@@ -12,6 +13,7 @@ import {
     LucideTrendingUp,
     LucideClock,
     LucidePauseCircle,
+    LucideCalendar,
 } from "lucide-react";
 import { AFFILIATE_GLASS_SURFACE } from "../../lib/chrome";
 import { cn } from "../../lib/utils";
@@ -24,10 +26,34 @@ const statusColors: Record<string, string> = {
     cancelled: "text-muted bg-button-secondary",
 };
 
+type Period = "all" | "7d" | "30d" | "90d" | "1y";
+
+const PERIOD_LABELS: Record<Period, string> = {
+    all: "All time",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "90d": "Last 90 days",
+    "1y": "Last year",
+};
+
+function getPeriodDates(period: Period): { startDate?: string; endDate?: string } {
+    if (period === "all") return {};
+    const now = new Date();
+    const start = new Date(now);
+    const days = period === "7d" ? 7 : period === "30d" ? 30 : period === "90d" ? 90 : 365;
+    start.setDate(start.getDate() - days);
+    return {
+        startDate: start.toISOString().split("T")[0],
+        endDate: now.toISOString().split("T")[0],
+    };
+}
+
 const Overview = () => {
     const { user } = useAuth();
     const { data: profile } = useAffiliateProfile();
-    const { data: stats, isLoading } = useAffiliateStats();
+    const [period, setPeriod] = useState<Period>("all");
+    const periodDates = useMemo(() => getPeriodDates(period), [period]);
+    const { data: stats, isLoading } = useAffiliateStats(periodDates.startDate, periodDates.endDate);
 
     if (profile?.status === "pending") {
         return (
@@ -70,6 +96,25 @@ const Overview = () => {
                 title={`Welcome back, ${user?.first_name ?? "Affiliate"}.`}
             />
 
+            {/* Period selector */}
+            <div className={cn(AFFILIATE_GLASS_SURFACE, "flex items-center gap-1 p-1 mb-6 w-fit")}>
+                <LucideCalendar className="w-4 h-4 text-muted ml-2 mr-1" />
+                {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+                    <button
+                        key={p}
+                        onClick={() => setPeriod(p)}
+                        className={cn(
+                            "px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
+                            period === p
+                                ? "bg-dark text-white shadow-sm"
+                                : "text-muted hover:text-heading hover:bg-background-secondary",
+                        )}
+                    >
+                        {PERIOD_LABELS[p]}
+                    </button>
+                ))}
+            </div>
+
             {/* Stats grid */}
             {isLoading ? (
                 <div className="flex items-center justify-center py-20">
@@ -79,23 +124,23 @@ const Overview = () => {
                 <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                         <StatCard
-                            label="Total clicks"
+                            label={period === "all" ? "Total clicks" : "Clicks"}
                             value={stats?.clicks ?? 0}
                             icon={<LucideMousePointerClick className="w-4 h-4" />}
                         />
                         <StatCard
-                            label="Conversions"
+                            label={period === "all" ? "Conversions" : "Conversions"}
                             value={stats?.conversions ?? 0}
                             icon={<LucideUsers className="w-4 h-4" />}
                             accent
                         />
                         <StatCard
-                            label="Commission (USD)"
+                            label={period === "all" ? "Commission (USD)" : "Earned (USD)"}
                             value={`$${parseFloat(stats?.total_commission ?? "0").toLocaleString()}`}
                             icon={<LucideCoins className="w-4 h-4" />}
                         />
                         <StatCard
-                            label="Commission (NGN)"
+                            label={period === "all" ? "Commission (NGN)" : "Earned (NGN)"}
                             value={`\u20a6${parseFloat(stats?.total_commission_ngn ?? "0").toLocaleString()}`}
                             icon={<LucideCoins className="w-4 h-4" />}
                         />

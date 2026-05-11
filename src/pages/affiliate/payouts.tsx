@@ -409,7 +409,7 @@ const Payouts = () => {
                                     placeholder={
                                         paymentMethod === "paypal"
                                             ? "your@email.com"
-                                            : "+234..."
+                                            : "**** ***"
                                     }
                                     className="w-full px-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
                                 />

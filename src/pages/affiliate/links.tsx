@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import AffiliateHeader from "../../components/affiliate/AffiliateHeader";
 import Button from "../../components/ui/Button";
-import { useReferralLinks, useCreateReferralLink, useCreditPlans } from "../../api/hooks";
+import { useReferralLinks, useCreateReferralLink, useCreditPlans, useCommissions } from "../../api/hooks";
 import { cn } from "../../lib/utils";
 import { AFFILIATE_GLASS_SURFACE } from "../../lib/chrome";
 import {
@@ -28,8 +28,14 @@ const buildPlanDestination = (plan: CreditPlan | undefined, clientBaseUrl: strin
     return `${base}/pricing?plan=${encodeURIComponent(plan.code)}`;
 };
 
+const formatCurrency = (amount: number, currency: string): string => {
+    const symbol = currency === "NGN" ? "₦" : "$";
+    return `${symbol}${amount.toFixed(2)}`;
+};
+
 const Links = () => {
     const { data: links, isLoading } = useReferralLinks();
+    const { data: commissions, isLoading: isLoadingCommissions } = useCommissions();
     const { data: creditPlans } = useCreditPlans();
     const createLink = useCreateReferralLink();
 
@@ -48,6 +54,23 @@ const Links = () => {
     const filtered = links?.filter((link) =>
         link.campaign.toLowerCase().includes(search.toLowerCase())
     ) ?? [];
+
+    const earnedByLink = useMemo(() => {
+        return (commissions ?? []).reduce(
+            (acc, commission) => {
+                if (commission.status === "cancelled") return acc;
+
+                const linkId = commission.referral_link_id;
+                if (!linkId) return acc;
+
+                const currency = commission.currency ?? "USD";
+                acc[linkId] = acc[linkId] ?? {};
+                acc[linkId][currency] = (acc[linkId][currency] ?? 0) + parseFloat(commission.amount);
+                return acc;
+            },
+            {} as Record<number, Record<string, number>>,
+        );
+    }, [commissions]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -230,7 +253,7 @@ const Links = () => {
             </div>
 
             {/* Links table */}
-            {isLoading ? (
+            {isLoading || isLoadingCommissions ? (
                 <div className="flex items-center justify-center py-20">
                     <LucideLoader2 className="w-6 h-6 animate-spin text-muted" />
                 </div>
@@ -271,7 +294,19 @@ const Links = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center text-muted">{link.conversions}</td>
                                             <td className="px-6 py-4 text-right text-heading font-semibold">
-                                                ${parseFloat(link.commission_earned).toFixed(2)}
+                                                {Object.entries(earnedByLink[link.id] ?? {}).length > 0 ? (
+                                                    <div className="space-y-1">
+                                                        {Object.entries(earnedByLink[link.id])
+                                                            .sort(([a], [b]) => a.localeCompare(b))
+                                                            .map(([currency, amount]) => (
+                                                                <div key={currency}>
+                                                                    {formatCurrency(amount, currency)}
+                                                                </div>
+                                                            ))}
+                                                    </div>
+                                                ) : (
+                                                    formatCurrency(0, "USD")
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">

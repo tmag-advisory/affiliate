@@ -1,6 +1,6 @@
 # TMAG Affiliate Dashboard
 
-The Affiliate Dashboard is the React portal for TMAG affiliates. Affiliates can register or log in, view performance, create referral links, monitor commissions, request payouts, and access marketing resources that point prospects back to the client app.
+The Affiliate Dashboard is the React portal for TMAG affiliates. Affiliates can register or log in, view performance, create referral links, monitor commissions, request payouts, and access marketing resources that point prospects back to the client pricing app.
 
 ## Stack
 

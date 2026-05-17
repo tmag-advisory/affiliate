@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import Button from "../../components/ui/Button";
-import { LucideMail, LucideLock, LucideEye, LucideEyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 
 const Login = () => {
@@ -10,13 +8,14 @@ const Login = () => {
     const { login } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError("");
         if (!email || !password) {
-            toast.error("Please enter your email and password.");
+            setError("Please enter your email and password.");
             return;
         }
         setLoading(true);
@@ -25,80 +24,85 @@ const Login = () => {
             toast.success("Welcome back!");
             navigate("/");
         } catch (err: unknown) {
-            const msg =
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (err as any)?.response?.data?.message || "Invalid credentials. Please try again.";
-            toast.error(msg);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const msg = (err as any)?.response?.data?.message ?? "Invalid email or password";
+            setError(msg);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-                <label htmlFor="email" className="block text-sm font-medium text-heading mb-1.5">
-                    Email address
-                </label>
-                <div className="relative">
-                    <LucideMail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+        <>
+            <h1 className="text-3xl md:text-4xl font-serif text-heading mb-2">
+                Welcome back.
+            </h1>
+            <p className="text-sm text-body mb-8">
+                Sign in to your affiliate dashboard.
+            </p>
+
+            {error && (
+                <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                    {error}
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                        Email
+                    </label>
                     <input
-                        id="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                        className="w-full bg-white border border-border-light rounded-xl px-4 py-3 text-sm text-heading placeholder:text-border outline-none focus:border-accent transition-colors duration-200"
                         autoComplete="email"
+                        required
                     />
                 </div>
-            </div>
 
-            <div>
-                <label htmlFor="password" className="block text-sm font-medium text-heading mb-1.5">
-                    Password
-                </label>
-                <div className="relative">
-                    <LucideLock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                <div>
+                    <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                        Password
+                    </label>
                     <input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
+                        type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border-light/60 bg-white text-sm text-heading placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                        placeholder="••••••••"
+                        className="w-full bg-white border border-border-light rounded-xl px-4 py-3 text-sm text-heading placeholder:text-border outline-none focus:border-accent transition-colors duration-200"
                         autoComplete="current-password"
+                        required
                     />
-                    <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-heading cursor-pointer"
-                    >
-                        {showPassword ? <LucideEyeOff className="w-4 h-4" /> : <LucideEye className="w-4 h-4" />}
-                    </button>
                 </div>
-            </div>
 
-            <div className="flex items-center justify-end">
-                <Link
-                    to="/forgot-password"
-                    className="text-sm text-accent hover:text-accent/80 transition-colors"
+                <div className="flex items-center justify-end">
+                    <Link
+                        to="/forgot-password"
+                        className="text-xs text-accent font-medium hover:underline"
+                    >
+                        Forgot password?
+                    </Link>
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 rounded-xl bg-dark text-background-primary font-semibold text-sm cursor-pointer hover:bg-darkest transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    Forgot password?
-                </Link>
-            </div>
+                    {loading ? "Signing in…" : "Sign in"}
+                </button>
+            </form>
 
-            <Button type="submit" loading={loading} className="w-full" size="lg">
-                Sign in
-            </Button>
-
-            <p className="text-sm text-center text-muted">
+            <p className="text-sm text-body text-center mt-6">
                 Don&apos;t have an affiliate account?{" "}
-                <Link to="/register" className="text-accent hover:text-accent/80 transition-colors font-medium">
+                <Link to="/register" className="text-accent font-medium hover:underline">
                     Register
                 </Link>
             </p>
-        </form>
+        </>
     );
 };
 

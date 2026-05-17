@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import AuthLayout from "../layouts/authLayout";
 import AffiliateLayout from "../layouts/affiliateLayout";
@@ -21,14 +21,33 @@ const Settings = lazy(() => import("../pages/affiliate/settings"));
 // Error pages
 const NotFound = lazy(() => import("../pages/not-found"));
 
+const loadingFallback = (
+    <div className="min-h-screen bg-background-primary flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-darkest flex items-center justify-center">
+                <span className="text-white font-bold">TM</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
+        </div>
+    </div>
+);
+
+const withSuspense = (element: ReactNode) => (
+    <Suspense fallback={loadingFallback}>{element}</Suspense>
+);
+
 const router = createBrowserRouter([
     // Auth routes
     {
         element: <AuthLayout />,
         children: [
-            { path: "login", element: <Login /> },
-            { path: "register", element: <Register /> },
-            { path: "forgot-password", element: <ForgotPassword /> },
+            { path: "login", element: withSuspense(<Login />) },
+            { path: "register", element: withSuspense(<Register />) },
+            { path: "forgot-password", element: withSuspense(<ForgotPassword />) },
         ],
     },
 
@@ -43,17 +62,17 @@ const router = createBrowserRouter([
             </ProtectedRoute>
         ),
         children: [
-            { index: true, element: <Overview /> },
-            { path: "links", element: <Links /> },
-            { path: "commissions", element: <Commissions /> },
-            { path: "payouts", element: <Payouts /> },
-            { path: "resources", element: <Resources /> },
-            { path: "settings", element: <Settings /> },
+            { index: true, element: withSuspense(<Overview />) },
+            { path: "links", element: withSuspense(<Links />) },
+            { path: "commissions", element: withSuspense(<Commissions />) },
+            { path: "payouts", element: withSuspense(<Payouts />) },
+            { path: "resources", element: withSuspense(<Resources />) },
+            { path: "settings", element: withSuspense(<Settings />) },
         ],
     },
 
     // 404
-    { path: "*", element: <NotFound /> },
+    { path: "*", element: withSuspense(<NotFound />) },
 ]);
 
 export default router;
